@@ -1,0 +1,41 @@
+[
+  {
+    "id": "table.Video",
+    "label": "Create table \"Video\"",
+    "summary": "Creates table \"Video\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "Video"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"Video\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Video\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"Video\"",
+        "sql": "CREATE TABLE \"public\".\"Video\" (\n  \"compressedSize\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"description\" text,\n  \"duration\" float8 NOT NULL,\n  \"id\" text NOT NULL,\n  \"originalSize\" text NOT NULL,\n  \"publicId\" text NOT NULL,\n  \"title\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"Video\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"Video\""
+        ]
+      }
+    ]
+  }
+]
