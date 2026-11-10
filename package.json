@@ -6,20 +6,35 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "contract:emit": "prisma contract emit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.14",
+    "@prisma/client": "^7.10.0",
+    "@prisma/orm-postgres": "^8.0.0-rc.17",
+    "axios": "^1.20.0",
+    "cloudinary": "^2.11.0",
+    "dayjs": "^1.11.23",
+    "dotenv": "^18.0.7",
+    "filesize": "^11.0.26",
+    "lucide-react": "^1.57.0",
     "next": "16.4.0",
+    "next-cloudinary": "^6.19.3",
+    "openai": "^7.34.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@prisma/cli-engine": "^0.7.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "daisyui": "^5.7.48",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
+    "prisma": "^8.0.0-rc.22",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
