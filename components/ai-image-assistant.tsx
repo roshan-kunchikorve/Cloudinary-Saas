@@ -1,120 +1,114 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
+import useSWR from "swr";
+import { fetcher, getErrorMessage } from "@/lib/client";
+
+interface AiInfo {
+  configured: boolean;
+  limit: number;
+  remaining: number;
+}
+
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_BYTES = 4 * 1024 * 1024;
+const DEFAULT_PROMPT = "Describe this photo and suggest three ways to improve it.";
 
 export default function AIImageAssistant() {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState("");
-  const [prompt, setPrompt] = useState(
-    "Describe this product and suggest improvements to its photo.",
-  );
+  // Is AI switched on, and how many analyses are left today?
+  const { data: info, mutate } = useSWR<AiInfo>("/api/ai-image", fetcher);
+
+  const [image, setImage] = useState(""); // the picture as a data URL
+  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
+    const file = event.target.files?.[0];
 
-    setFile(null);
-    setPreview("");
+    setImage("");
     setResult("");
     setError("");
 
-    if (!selected) return;
+    if (!file) return;
 
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-
-    if (!allowedTypes.includes(selected.type)) {
-      setError("Choose a PNG, JPEG, or WebP image.");
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError("Choose a PNG, JPEG or WebP image.");
       return;
     }
 
-    if (selected.size > 4 * 1024 * 1024) {
+    if (file.size > MAX_BYTES) {
       setError("Choose an image smaller than 4 MB.");
       return;
     }
 
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
+    const reader = new FileReader();
+    reader.onload = () => setImage(String(reader.result));
+    reader.onerror = () => setError("Could not read the image.");
+    reader.readAsDataURL(file);
   }
 
   async function analyzeImage() {
-    if (!file || !prompt.trim()) {
-      setError("Choose an image and enter a prompt.");
-      return;
-    }
-
     setLoading(true);
     setError("");
     setResult("");
 
     try {
-      const image = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onload = () => {
-          if (typeof reader.result === "string") {
-            resolve(reader.result);
-          } else {
-            reject(new Error("Could not read image."));
-          }
-        };
-
-        reader.onerror = () => reject(new Error("Could not read image."));
-
-        reader.readAsDataURL(file);
-      });
-
-      const response = await fetch("/api/ai-image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ image, prompt }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Analysis failed.");
-      }
-
+      const { data } = await axios.post<{ result: string }>("/api/ai-image", { image, prompt });
       setResult(data.result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
+      mutate(); // refresh "analyses left today"
     }
   }
 
+  const switchedOff = info !== undefined && !info.configured;
+  const limitReached = info !== undefined && info.configured && info.remaining === 0;
+
   return (
-    <main className="mx-auto max-w-2xl space-y-5 p-6">
-      <h1 className="text-3xl font-bold">AI Image Studio</h1>
+    <div className="mx-auto max-w-2xl space-y-5">
+      <div>
+        <h1 className="text-3xl font-bold">AI studio</h1>
+        <p className="mt-1 opacity-70">Upload a photo and ask the AI a question about it.</p>
+      </div>
 
-      <p className="text-gray-600">Upload an image and ask AI to analyze it.</p>
+      {switchedOff && (
+        <div role="status" className="alert alert-info">
+          AI analysis is switched off on this server because no AI key is set.
+        </div>
+      )}
 
-      <label className="block font-medium">
-        Select an image
+      {info?.configured && (
+        <p className="text-sm opacity-70">
+          {info.remaining} of {info.limit} analyses left in the last 24 hours.
+        </p>
+      )}
+
+      <label className="block">
+        <span className="mb-1 block font-medium">Choose an image (PNG, JPEG or WebP, up to 4 MB)</span>
         <input
-          className="mt-2 block w-full"
+          className="file-input file-input-bordered w-full"
           type="file"
           accept="image/png,image/jpeg,image/webp"
           onChange={handleFileChange}
         />
       </label>
 
-      {preview && (
-        <img
-          src={preview}
-          alt="Selected image preview"
-          className="max-h-96 rounded-xl object-contain"
-        />
+      {image && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview */}
+          <img src={image} alt="Selected image preview" className="max-h-96 rounded-xl object-contain" />
+        </>
       )}
 
-      <label className="block font-medium">
-        What should AI do?
+      <label className="block">
+        <span className="mb-1 block font-medium">What should the AI do?</span>
         <textarea
-          className="mt-2 w-full rounded-lg border p-3"
+          className="textarea textarea-bordered w-full"
           rows={3}
           maxLength={500}
           value={prompt}
@@ -123,25 +117,25 @@ export default function AIImageAssistant() {
       </label>
 
       <button
-        className="rounded-lg bg-black px-5 py-3 text-white disabled:opacity-50"
+        className="btn btn-primary"
         onClick={analyzeImage}
-        disabled={!file || loading || !prompt.trim()}
+        disabled={!image || loading || !prompt.trim() || switchedOff || limitReached}
       >
         {loading ? "Analyzing..." : "Analyze image"}
       </button>
 
       {error && (
-        <p className="text-red-600" role="alert">
+        <p className="text-error" role="alert">
           {error}
         </p>
       )}
 
       {result && (
-        <section className="space-y-2 rounded-xl border p-4">
-          <h2 className="text-xl font-semibold">AI Results</h2>
+        <section className="space-y-2 rounded-xl border border-base-300 p-4">
+          <h2 className="text-xl font-semibold">AI result</h2>
           <p className="whitespace-pre-wrap">{result}</p>
         </section>
       )}
-    </main>
+    </div>
   );
 }
