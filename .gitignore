@@ -42,3 +42,9 @@ next-env.d.ts
 node_modules/
 dist/
 .env
+
+# generated Prisma client (created by: npm install -> prisma generate)
+/lib/generated
+
+# keep the example env file in git (the line above ignores every .env* file)
+!.env.example
