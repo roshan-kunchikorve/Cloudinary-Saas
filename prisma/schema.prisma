@@ -1,37 +1,42 @@
-// use prisma-8
+// CloudMedia database schema (Prisma ORM + PostgreSQL).
+// After you change this file, create a migration with:  npm run db:migrate
 
-
-
-
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String?
-  name      String?
-  posts     Post[]
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
 }
 
-model Post {
-  id        Int      @id @default(autoincrement())
-  title     String
-  content   String?
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  Int
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
+datasource db {
+  provider = "postgresql"
 }
 
-
+/// One row per uploaded video.
+/// The video file itself lives in Cloudinary. We only keep its publicId
+/// (used to build the thumbnail, preview and video URLs) and the numbers we show.
 model Video {
-  id             String   @id @default(cuid(2))
+  id             String   @id @default(cuid())
+  userId         String // Clerk user id of the owner
   title          String
   description    String?
-  publicId       String
-  originalSize   String
-  compressedSize String
-  duration       Float
+  publicId       String   @unique // Cloudinary id of the compressed video
+  originalSize   Int // bytes before compression
+  compressedSize Int // bytes after Cloudinary compressed it
+  duration       Float // seconds
   createdAt      DateTime @default(now())
-updatedAt        temporal.updatedAt()
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId, createdAt]) // "my videos, newest first"
+  @@index([createdAt]) // "all videos, newest first"
+  @@map("videos")
+}
+
+/// One row each time a user runs the AI image analysis.
+/// We count the rows from the last 24 hours to enforce a daily limit.
+model AiGeneration {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ai_generations")
 }
