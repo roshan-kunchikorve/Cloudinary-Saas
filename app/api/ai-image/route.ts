@@ -58,6 +58,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ result, remaining: limit - used - 1 });
   } catch (error) {
     console.error("[ai-image] failed:", error);
+
+    // 429 from OpenAI means no credit left or too many requests
+    if ((error as { status?: number }).status === 429) {
+      return errorResponse(
+        "The AI provider has no credit or is busy right now. Try again later.",
+        503,
+      );
+    }
+
     return errorResponse("The AI service failed. Please try again.", 502);
   }
 }
