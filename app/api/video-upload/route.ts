@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
-import { db } from "@/prisma/db";
+import { prisma } from "@/lib/prisma";
 
 interface CloudinaryUploadResult {
   public_id: string;
@@ -94,13 +94,25 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    const video = await db.orm.public.Video.create({
-      title,
-      description,
-      publicId: result.public_id,
-      originalSize: String(originalSize),
-      compressedSize: String(result.bytes),
-      duration: result.duration ?? 0,
+    const userId =
+      request.headers.get("x-user-id") ??
+      request.headers.get("user-id") ??
+      process.env.DEFAULT_USER_ID;
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const video = await prisma.video.create({
+      data: {
+        title,
+        description,
+        publicId: result.public_id,
+        originalSize,
+        compressedSize: result.bytes,
+        duration: result.duration ?? 0,
+        userId,
+      },
     });
 
     return NextResponse.json(video, { status: 201 });
