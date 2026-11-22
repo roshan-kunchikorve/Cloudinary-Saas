@@ -6,6 +6,7 @@ Users upload videos straight to Cloudinary, which compresses them. CloudMedia sh
 
 Built with **Next.js 16, TypeScript, Clerk, Cloudinary, Prisma and PostgreSQL**.
 
+<!-- Live demo: add your Vercel link here -->
 <!-- Add 2-3 screenshots here: the video gallery, the upload page with the progress bar, and the social share page.
      Example: ![Video gallery](docs/screenshots/gallery.png) -->
 
@@ -161,6 +162,8 @@ cd Cloudinary-Saas
 npm install
 ```
 
+Windows tip: keep the project outside OneDrive (for example in `C:\dev`). OneDrive tries to sync the huge `node_modules` folder and slows everything down.
+
 1. Copy `.env.example` to `.env` and fill in the values:
 
    | Variable | Where to find it | Required |
@@ -168,8 +171,8 @@ npm install
    | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | Clerk dashboard, API keys | Yes |
    | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Cloudinary dashboard | Yes |
    | `DATABASE_URL` | Neon connection string | Yes |
-   | `DIRECT_URL` | Neon direct (non-pooled) connection string, used for migrations | No |
-   | `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_DAILY_LIMIT` | OpenAI dashboard | No (AI studio switches off without a key) |
+   | `DIRECT_URL` | Neon direct (non-pooled) connection string. Prisma uses it first for migrations. Keep the line commented out if you do not need it | No |
+   | `OPENAI_API_KEY`, `OPENAI_MODEL`, `AI_DAILY_LIMIT` | OpenAI dashboard (the API is billed separately from ChatGPT) | No (AI studio switches off without a key) |
 
 2. Create the tables:
 
@@ -216,6 +219,13 @@ This runs the unit tests (formatting, validation, ownership rules). The API test
 2. Use Clerk's production keys and add your domain in the Clerk dashboard.
 3. Run `npm run db:deploy` once with `DATABASE_URL` (or `DIRECT_URL`) pointing at the production database.
 
+## Security notes
+
+- Never commit `.env`. Git ignores it, and `.env.example` lists the variable names only.
+- If a password or key is ever pasted into a chat, an issue or a commit, treat it as leaked and create a new one.
+- Only variables that start with `NEXT_PUBLIC_` reach the browser. Secrets such as `CLOUDINARY_API_SECRET` and `CLERK_SECRET_KEY` stay on the server.
+- Every route that changes data checks `auth()` itself, in addition to `proxy.ts`.
+
 ## Design decisions
 
 | Decision | Why |
@@ -235,6 +245,7 @@ This runs the unit tests (formatting, validation, ownership rules). The API test
 - All videos are public. Private videos need Cloudinary's authenticated delivery.
 - Search uses `ILIKE`. For a large library, use PostgreSQL full-text search or a trigram index.
 - Compression is applied while saving, so the original file is not kept.
+- The 50 MB limit is checked in the browser. A determined user could bypass it, and only Cloudinary's plan limits would apply. A fix is to reject oversized files when the video is saved.
 - Ideas: delete a user's data when their Clerk account is deleted (webhook), rate limiting for all routes, end-to-end tests with Playwright, likes and comments.
 
 ## Troubleshooting
@@ -246,6 +257,9 @@ This runs the unit tests (formatting, validation, ownership rules). The API test
 | Neon connection error that mentions SSL or channel binding | Keep `sslmode=require` and remove `&channel_binding=require` from the URL |
 | Upload fails with "Invalid Signature" | Check the three Cloudinary values in `.env`, then restart `npm run dev` |
 | AI studio says it is not set up | Set `OPENAI_API_KEY` and restart. If OpenAI says the model was not found, set `OPENAI_MODEL` to a current vision-capable model |
+| OpenAI error `credit_balance_exhausted` (429) | The OpenAI API needs prepaid credit, separate from ChatGPT. Add credit, or leave `OPENAI_API_KEY` empty to switch the AI studio off |
+| `P1001: Can't reach database server` | Check that the host name in the error matches your `.env` (Prisma reads `DIRECT_URL` first). Then run `nslookup <host>`. If it says "Query refused", set your DNS to 1.1.1.1 and 8.8.8.8, or use a phone hotspot |
+| `.env` changes are ignored | Restart `npm run dev`. A variable set in Windows overrides `.env` (check with `echo %DATABASE_URL%`) |
 
 ## License
 
