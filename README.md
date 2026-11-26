@@ -186,7 +186,7 @@ Windows tip: keep the project outside OneDrive (for example in `C:\dev`). OneDri
    npm run dev
    ```
 
-   Open http://localhost:3000, create an account, and upload a short video.
+   Open https://cloudmedia-ai-saas.vercel.app/, create an account, and upload a short video.
 
 ## Scripts
 
